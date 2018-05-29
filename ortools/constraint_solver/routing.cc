@@ -5129,7 +5129,7 @@ void RoutingDimension::SetFourStagePiecewiseCost(
 	CHECK_GE(lower_bound_slope, 0);
 	CHECK_GE(upper_bound_slope, 0);
 
-  LOG(WARNING) << "Setting on " << index;
+  //LOG(WARNING) << "Setting on " << index;
   if (model_->IsStart(index) || model_->IsEnd(index)) {
     LOG(WARNING) << "Cannot set cost on start or end index!";
   }
@@ -5141,7 +5141,7 @@ void RoutingDimension::SetFourStagePiecewiseCost(
 			std::vector<int64>{kint64min, point_x_2, point_x_3, kint64max}
 	);
 
-  LOG(ERROR) << "HEADED TO " << index << cost->DebugString();
+  //LOG(ERROR) << "HEADED TO " << index << cost->DebugString();
 
   SetCumulVarPiecewiseLinearCostFromIndex(index, *cost);
   delete cost;
@@ -5249,7 +5249,7 @@ void RoutingDimension::SetupCumulVarPiecewiseLinearCosts(
     std::vector<IntVar*>* cost_elements) const {
   CHECK(cost_elements != nullptr);
   Solver* const solver = model_->solver();
-  LOG(WARNING) << "Setting up piecewise costs " << cumul_var_piecewise_linear_cost_.size();
+  //LOG(WARNING) << "Setting up piecewise costs " << cumul_var_piecewise_linear_cost_.size();
   for (int i = 0; i < cumul_var_piecewise_linear_cost_.size(); ++i) {
     const PiecewiseLinearCost& piecewise_linear_cost =
         cumul_var_piecewise_linear_cost_[i];
@@ -5260,17 +5260,17 @@ void RoutingDimension::SetupCumulVarPiecewiseLinearCosts(
       if (model_->IsEnd(i)) {
         // No active variable for end nodes, always active.
         cost_var = expr->Var();
-        LOG(WARNING) << "Adding no cost";
+        //LOG(WARNING) << "Adding no cost";
       } else {
         cost_var = solver->MakeProd(expr, model_->ActiveVar(i))->Var();
-        LOG(WARNING) << "Adding cost";
+/*        LOG(WARNING) << "Adding cost";*/
       }
       cost_elements->push_back(cost_var);
       // TODO(user): Check if it wouldn't be better to minimize
       // piecewise_linear_cost.var here.
       model_->AddVariableMinimizedByFinalizer(cost_var);
       //model_->AddVariableMinimizedByFinalizer(piecewise_linear_cost.var);
-      LOG(WARNING) << "Adding minimize to finalizer";
+/*      LOG(WARNING) << "Adding minimize to finalizer";*/
     }
   }
 }
