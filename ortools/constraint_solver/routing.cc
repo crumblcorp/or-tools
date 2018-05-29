@@ -5105,6 +5105,48 @@ void RoutingDimension::SetGlobalSpanCostCoefficient(int64 coefficient) {
   global_span_cost_coefficient_ = coefficient;
 }
 
+void RoutingDimension::SetFourStagePiecewiseCost(
+      int64 index,
+		  int64 lower_bound_slope,
+		  int64 point_x,
+		  int64 point_y,
+		  int64 slope,
+		  int64 point_x_2,
+		  int64 slope_2,
+		  int64 point_x_3,
+		  int64 upper_bound_slope) {
+
+//	CreatePiecewiseLinearFunction(
+//	      std::vector<int64> points_x, std::vector<int64> points_y,
+//	      std::vector<int64> slopes, std::vector<int64> other_points_x);
+
+	int64 point_y_2 = (point_x_2 - point_x) * slope;
+	int64 point_y_3 = (point_x_3 - point_x_2) * slope_2 + point_y_2;
+
+
+	CHECK_GE(slope, 0);
+	CHECK_GE(slope_2, 0);
+	CHECK_GE(lower_bound_slope, 0);
+	CHECK_GE(upper_bound_slope, 0);
+
+  LOG(WARNING) << "Setting on " << index;
+  if (model_->IsStart(index) || model_->IsEnd(index)) {
+    LOG(WARNING) << "Cannot set cost on start or end index!";
+  }
+
+	PiecewiseLinearFunction *cost = PiecewiseLinearFunction::CreatePiecewiseLinearFunction(
+			std::vector<int64>{point_x, point_x, point_x_2, point_x_3},
+			std::vector<int64>{point_y, point_y, point_y_2, point_y_3},
+			std::vector<int64>{-lower_bound_slope, slope, slope_2, upper_bound_slope},
+			std::vector<int64>{kint64min, point_x_2, point_x_3, kint64max}
+	);
+
+  LOG(ERROR) << "HEADED TO " << index << cost->DebugString();
+
+  SetCumulVarPiecewiseLinearCostFromIndex(index, *cost);
+  delete cost;
+}
+
 void RoutingDimension::SetCumulVarPiecewiseLinearCost(
     RoutingModel::NodeIndex node, const PiecewiseLinearFunction& cost) {
   if (model_->HasIndex(node)) {
@@ -5207,6 +5249,7 @@ void RoutingDimension::SetupCumulVarPiecewiseLinearCosts(
     std::vector<IntVar*>* cost_elements) const {
   CHECK(cost_elements != nullptr);
   Solver* const solver = model_->solver();
+  LOG(WARNING) << "Setting up piecewise costs " << cumul_var_piecewise_linear_cost_.size();
   for (int i = 0; i < cumul_var_piecewise_linear_cost_.size(); ++i) {
     const PiecewiseLinearCost& piecewise_linear_cost =
         cumul_var_piecewise_linear_cost_[i];
@@ -5217,13 +5260,17 @@ void RoutingDimension::SetupCumulVarPiecewiseLinearCosts(
       if (model_->IsEnd(i)) {
         // No active variable for end nodes, always active.
         cost_var = expr->Var();
+        LOG(WARNING) << "Adding no cost";
       } else {
         cost_var = solver->MakeProd(expr, model_->ActiveVar(i))->Var();
+        LOG(WARNING) << "Adding cost";
       }
       cost_elements->push_back(cost_var);
       // TODO(user): Check if it wouldn't be better to minimize
       // piecewise_linear_cost.var here.
       model_->AddVariableMinimizedByFinalizer(cost_var);
+      //model_->AddVariableMinimizedByFinalizer(piecewise_linear_cost.var);
+      LOG(WARNING) << "Adding minimize to finalizer";
     }
   }
 }
@@ -5319,7 +5366,8 @@ int64 RoutingDimension::GetEndCumulVarSoftUpperBoundCoefficient(
 
 void RoutingDimension::SetCumulVarSoftUpperBoundFromIndex(int64 index,
                                                           int64 upper_bound,
-                                                          int64 coefficient) {
+                                                          int64 coefficient,
+                                                          int64 exponent) {
   if (index >= cumul_var_soft_upper_bound_.size()) {
     cumul_var_soft_upper_bound_.resize(index + 1);
   }
@@ -5327,6 +5375,7 @@ void RoutingDimension::SetCumulVarSoftUpperBoundFromIndex(int64 index,
   soft_upper_bound->var = cumuls_[index];
   soft_upper_bound->bound = upper_bound;
   soft_upper_bound->coefficient = coefficient;
+  soft_upper_bound->exponent = exponent;
 }
 
 bool RoutingDimension::HasCumulVarSoftUpperBoundFromIndex(int64 index) const {
@@ -5358,9 +5407,9 @@ void RoutingDimension::SetupCumulVarSoftUpperBoundCosts(
   for (int i = 0; i < cumul_var_soft_upper_bound_.size(); ++i) {
     const SoftBound& soft_bound = cumul_var_soft_upper_bound_[i];
     if (soft_bound.var != nullptr) {
-      IntExpr* const expr = solver->MakeSemiContinuousExpr(
+      IntExpr* const expr = solver->MakePower(solver->MakeSemiContinuousExpr(
           solver->MakeSum(soft_bound.var, -soft_bound.bound), 0,
-          soft_bound.coefficient);
+          soft_bound.coefficient), soft_bound.exponent);
       IntVar* cost_var = nullptr;
       if (model_->IsEnd(i)) {
         // No active variable for end nodes, always active.

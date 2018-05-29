@@ -1417,6 +1417,17 @@ class RoutingDimension {
   //   coefficient * (Max(dimension end value) - Min(dimension start value)).
   void SetGlobalSpanCostCoefficient(int64 coefficient);
 
+  void SetFourStagePiecewiseCost(
+        int64 index,
+  		  int64 lower_bound_slope,
+  		  int64 point_x,
+  		  int64 point_y,
+  		  int64 slope,
+  		  int64 point_x_2,
+  		  int64 slope_2,
+  		  int64 point_x_3,
+  		  int64 upper_bound_slope);
+
 #ifndef SWIG
   // Sets a piecewise linear cost on the cumul variable of a given node.
   // If f is a piecewsie linear function, the resulting cost at node n will be
@@ -1479,7 +1490,7 @@ class RoutingDimension {
                                     int64 coefficient);
   // Same as SetCumulVarSoftUpperBound but using a variable index.
   void SetCumulVarSoftUpperBoundFromIndex(int64 index, int64 upper_bound,
-                                          int64 coefficient);
+                                          int64 coefficient, int64 exponent = 1);
   // Returns true if a soft upper bound has been set for a given node.
   bool HasCumulVarSoftUpperBound(RoutingModel::NodeIndex node) const;
   // Returns true if a soft upper bound has been set for a given vehicle start
@@ -1635,10 +1646,11 @@ class RoutingDimension {
 
  private:
   struct SoftBound {
-    SoftBound() : var(nullptr), bound(0), coefficient(0) {}
+    SoftBound() : var(nullptr), bound(0), coefficient(0), exponent(1) {}
     IntVar* var;
     int64 bound;
     int64 coefficient;
+    int64 exponent;
   };
 
   struct PiecewiseLinearCost {

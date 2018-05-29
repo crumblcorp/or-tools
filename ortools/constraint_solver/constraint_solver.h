@@ -1183,7 +1183,6 @@ class Solver {
   IntExpr* MakeSquare(IntExpr* const expr);
   // expr ^ n (n > 0)
   IntExpr* MakePower(IntExpr* const expr, int64 n);
-
   // values[index]
   IntExpr* MakeElement(const std::vector<int64>& values, IntVar* const index);
   // values[index]
